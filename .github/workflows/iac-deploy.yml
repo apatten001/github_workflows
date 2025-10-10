@@ -28,7 +28,6 @@ permissions:
 jobs:
   terraform-deploy:
     runs-on: ubuntu-latest
-    needs: wiz-scan
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
