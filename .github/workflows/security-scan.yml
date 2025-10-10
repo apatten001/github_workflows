@@ -1,0 +1,88 @@
+name: Security Scanning with BlackDuck and Coverity
+
+on:
+  workflow_call:
+    inputs:
+      scan_dir:
+        description: 'Directory containing source code to scan'
+        type: string
+        required: false
+        default: '.'
+      project_name:
+        description: 'Black Duck/Coverity project name'
+        type: string
+        required: true
+      version:
+        description: 'Scan version (e.g., commit SHA or semantic)'
+        type: string
+        required: false
+        default: ${{ github.sha }}
+      blackduck_url:
+        description: 'Black Duck server URL (e.g., https://your-blackduck.com)'
+        type: string
+        required: true
+      coverity_server_url:
+        description: 'Coverity server URL (e.g., https://your-coverity.com)'
+        type: string
+        required: true
+      build_command:
+        description: 'Build command for Coverity instrumentation (e.g., mvn clean compile)'
+        type: string
+        required: true
+      blackduck_scan_failure_severities:
+        description: 'Severities to fail on for Black Duck (comma-separated: CRITICAL,HIGH)'
+        type: string
+        required: false
+        default: 'CRITICAL,HIGH'
+    secrets:
+      BLACKDUCK_API_TOKEN:
+        description: 'Black Duck API token'
+        required: true
+      COVERITY_USER:
+        description: 'Coverity username'
+        required: true
+      COVERITY_PASS:
+        description: 'Coverity password/token'
+        required: true
+
+permissions:
+  contents: read
+  security-events: write  # For SARIF upload if enabled
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # For full history in scans
+
+      - name: Run Black Duck SCA and Coverity SAST
+        id: scan
+        uses: blackduck-inc/black-duck-security-scan@v1  # Latest version as of Oct 2025
+        with:
+          blackduck_url: ${{ inputs.blackduck_url }}
+          blackduck_api_token: ${{ secrets.BLACKDUCK_API_TOKEN }}
+          coverity_url: ${{ inputs.coverity_server_url }}
+          coverity_user: ${{ secrets.COVERITY_USER }}
+          coverity_pass: ${{ secrets.COVERITY_PASS }}
+          project_name: ${{ inputs.project_name }}
+          version: ${{ inputs.version }}
+          working_directory: ${{ inputs.scan_dir }}
+          blackducksca_scan_mode: 'RAPID'  # Fast SCA; use 'INTELLIGENT' for change-based
+          blackducksca_scan_failure_severities: ${{ inputs.blackduck_scan_failure_severities }}
+          coverity_enabled: true
+          coverity_build_command: ${{ inputs.build_command }}
+          coverity_args: '--copt -fdiagnostics-color=never'  # Optional: Suppress colors in logs
+          mark_build_status: 'failure'  # Fail workflow on violations
+          upload_sarif: true  # Upload results to GitHub Security tab
+
+      - name: Check scan status
+        if: always()
+        run: |
+          echo "Scan status: ${{ steps.scan.outputs.status }}"
+          if [[ "${{ steps.scan.outputs.status }}" != "0" ]]; then
+            echo "Security scan failed - check policy violations."
+            exit 1
+          fi
