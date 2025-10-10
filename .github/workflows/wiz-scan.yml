@@ -1,0 +1,33 @@
+name: IaC Deployment with Wiz Scan
+
+on:
+  workflow_call:
+    secrets:
+      WIZ_CLIENT_ID:
+        description: 'Wiz API client ID'
+        required: true
+      WIZ_CLIENT_SECRET:
+        description: 'Wiz API client secret'
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  wiz-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Wiz CLI
+        run: |
+          curl -s -o wizcli https://wizcli.app.wiz.io/latest/wizcli
+          chmod +x wizcli
+
+      - name: Authenticate Wiz CLI
+        run: ./wizcli auth --id ${{ secrets.WIZ_CLIENT_ID }} --secret ${{ secrets.WIZ_CLIENT_SECRET }}
+
+      - name: Run Wiz IaC Scan
+        run: ./wizcli iac scan --path ${{ inputs.terraform_dir }} --threshold critical  # Fails on critical issues; adjust threshold as needed
