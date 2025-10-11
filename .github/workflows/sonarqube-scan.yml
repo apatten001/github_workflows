@@ -1,0 +1,81 @@
+name: SonarQube Scan
+
+on:
+  workflow_call:
+    inputs:
+      scan_dir:
+        description: 'Directory containing source code to scan'
+        type: string
+        required: false
+        default: '.'
+      sonar_project_key:
+        description: 'SonarQube project key'
+        type: string
+        required: true
+      sonar_host_url:
+        description: 'SonarQube server URL (e.g., https://your-sonarqube.com or https://sonarcloud.io)'
+        type: string
+        required: true
+      build_command:
+        description: 'Build command for SonarQube analysis (e.g., mvn clean verify)'
+        type: string
+        required: true
+      sonar_extra_args:
+        description: 'Additional SonarQube scanner arguments (e.g., -Dsonar.branch.name=main)'
+        type: string
+        required: false
+        default: ''
+    secrets:
+      SONAR_TOKEN:
+        description: 'SonarQube access token'
+        required: true
+
+permissions:
+  contents: read
+  security-events: write  # For SARIF upload if enabled
+
+jobs:
+  sonarqube-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for accurate SonarQube analysis
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'  # Adjust for your project
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Run SonarQube scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn -B ${{ inputs.build_command }} \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
+            -Dsonar.projectKey=${{ inputs.sonar_project_key }} \
+            -Dsonar.host.url=${{ inputs.sonar_host_url }} \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            ${{ inputs.sonar_extra_args }}
+        working-directory: ${{ inputs.scan_dir }}
+
+      - name: Check SonarQube Quality Gate
+        run: |
+          QUALITY_GATE_STATUS=$(curl -s -u ${{ secrets.SONAR_TOKEN }}: \
+            "${{ inputs.sonar_host_url }}/api/qualitygates/project_status?projectKey=${{ inputs.sonar_project_key }}" \
+            | jq -r '.projectStatus.status')
+          if [[ "$QUALITY_GATE_STATUS" != "OK" ]]; then
+            echo "Quality Gate failed: $QUALITY_GATE_STATUS"
+            exit 1
+          else
+            echo "Quality Gate passed"
+          fi
