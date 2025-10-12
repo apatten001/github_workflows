@@ -1,4 +1,4 @@
-name: IaC Deployment with Wiz Scan
+name: Wiz Scan
 
 on:
   workflow_call:
