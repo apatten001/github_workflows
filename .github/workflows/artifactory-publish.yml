@@ -1,4 +1,4 @@
-name: Artifactory Publish
+name: Artifactory Publish And/Or Docker Image Publish
 
 on:
   workflow_call:
@@ -29,6 +29,13 @@ on:
         description: 'ARN of the IAM role for AWS access (OIDC, optional)'
         type: string
         required: false
+     docker_image:
+        description: 'Answer whether a Docker image needs to be published to a Artifactory'
+        type: boolean
+        required: false
+        default: false
+
+    
     secrets:
       ARTIFACTORY_USERNAME:
         description: 'Artifactory username'
@@ -87,3 +94,13 @@ jobs:
           mvn -B ${{ inputs.build_command }} deploy \
             -DaltDeploymentRepository=artifactory::default::${{ inputs.artifactory_url }}/${{ inputs.artifactory_repo }}
         working-directory: ${{ inputs.artifact_dir }}
+        
+      # Docker image push to Artifactory (comment if not needed)
+      - name: Login to Artifactory Docker
+        if: inputs.docker_image != false
+        run: |
+          echo "${{ secrets.ARTIFACTORY_PASSWORD }}" | docker login ${{ inputs.artifactory_url }} -u ${{ secrets.ARTIFACTORY_USERNAME }} --password-stdin
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ inputs.artifactory_url }}/${{ inputs.artifactory_repo }}/my-app:${{ github.sha }} ${{ inputs.artifact_dir }}
+          docker push ${{ inputs.artifactory_url }}/${{ inputs.artifactory_repo }}/my-app:${{ github.sha }}
