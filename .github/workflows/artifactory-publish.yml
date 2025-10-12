@@ -1,0 +1,89 @@
+name: Artifactory Publish
+
+on:
+  workflow_call:
+    inputs:
+      artifact_dir:
+        description: 'Directory containing the build artifacts or Dockerfile'
+        type: string
+        required: false
+        default: '.'
+      artifactory_url:
+        description: 'Artifactory server URL (e.g., https://your-org.jfrog.io/artifactory)'
+        type: string
+        required: true
+      artifactory_repo:
+        description: 'Artifactory repository name (e.g., libs-release-local or docker)'
+        type: string
+        required: true
+      build_command:
+        description: 'Command to build artifacts (e.g., mvn clean package)'
+        type: string
+        required: true
+      aws_region:
+        description: 'AWS region (if using AWS for related services)'
+        type: string
+        required: false
+        default: 'us-east-1'
+      aws_role_arn:
+        description: 'ARN of the IAM role for AWS access (OIDC, optional)'
+        type: string
+        required: false
+    secrets:
+      ARTIFACTORY_USERNAME:
+        description: 'Artifactory username'
+        required: true
+      ARTIFACTORY_PASSWORD:
+        description: 'Artifactory password or API key'
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  artifactory-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (Optional)
+        if: inputs.aws_role_arn != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.aws_role_arn }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'  # Adjust for your project
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Configure Maven settings for Artifactory
+        run: |
+          cat > ~/.m2/settings.xml << EOF
+          <settings>
+            <servers>
+              <server>
+                <id>artifactory</id>
+                <username>${{ secrets.ARTIFACTORY_USERNAME }}</username>
+                <password>${{ secrets.ARTIFACTORY_PASSWORD }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Build and publish to Artifactory
+        run: |
+          mvn -B ${{ inputs.build_command }} deploy \
+            -DaltDeploymentRepository=artifactory::default::${{ inputs.artifactory_url }}/${{ inputs.artifactory_repo }}
+        working-directory: ${{ inputs.artifact_dir }}
