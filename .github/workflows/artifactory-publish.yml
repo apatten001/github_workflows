@@ -29,7 +29,7 @@ on:
         description: 'ARN of the IAM role for AWS access (OIDC, optional)'
         type: string
         required: false
-     docker_image:
+      docker_image:
         description: 'Answer whether a Docker image needs to be published to a Artifactory'
         type: boolean
         required: false
