@@ -79,7 +79,7 @@ jobs:
       working-directory: ./terraform/rds
       id: plan
       run: |
-        terraform plan -var="environment=${{ inputs.environment }}" -var="aws_region=${{ inputs.aws-region }}" -var="project_name=${{ github.repository }}" -out=tfplan
+        terraform plan -var-file=${{inputs.environment}}.tfvars -var="environment=${{ inputs.environment }}" -var="aws_region=${{ inputs.aws-region }}" -var="project_name=${{ github.repository }}" -out=tfplan
         echo "planfile=$(pwd)/tfplan" >> $GITHUB_OUTPUT
 
     - name: Approval for Apply (if required)
@@ -112,3 +112,4 @@ jobs:
       working-directory: ./terraform/rds
 
       run: terraform destroy -auto-approve
+
