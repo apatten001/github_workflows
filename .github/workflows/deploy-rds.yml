@@ -75,6 +75,7 @@ jobs:
       run: terraform validate
 
     - name: Terraform Plan
+      timeout-minutes: 10
       working-directory: ./terraform/rds
       id: plan
       run: |
@@ -109,4 +110,5 @@ jobs:
     - name: Terraform Destroy (on failure or manual trigger)
       if: failure() && inputs.approval-required == 'true'
       working-directory: ./terraform/rds
+
       run: terraform destroy -auto-approve
