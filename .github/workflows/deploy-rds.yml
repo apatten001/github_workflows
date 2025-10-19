@@ -88,7 +88,7 @@ jobs:
         echo "planfile=$(pwd)/tfplan" >> $GITHUB_OUTPUT
 
     - name: Approval for Apply (if required)
-      if: inputs.approval-required == 'true' && github.ref == 'refs/heads/main'
+      if: inputs.approval-required == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
       id: approval
       uses: trstringer/manual-approval@v1
       timeout-minutes: 30  # Fail after 30 min if no response
@@ -108,7 +108,7 @@ jobs:
         notify-assignees-on-approval: true  # Optional: Extra notification on approval
 
     - name: Terraform Apply
-      if: (inputs.approval-required != 'true' || steps.approval.outcome == 'success') && github.ref == 'refs/heads/main'
+      if: (inputs.approval-required != 'true' || steps.approval.outcome == 'success') && (github.ref == 'refs/heads/main'|| github.ref == 'refs/heads/develop')
       working-directory: ${{ inputs.working-directory}}
       run: terraform apply -auto-approve tfplan
 
@@ -117,5 +117,6 @@ jobs:
       working-directory: ${{ inputs.working-directory}}
 
       run: terraform destroy -auto-approve
+
 
 
