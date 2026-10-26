@@ -53,7 +53,7 @@ jobs:
 
     steps:
     - name: Checkout
-    - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # pin to version SHA v7.0
+      uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # pin to version SHA v7.0
       with:
         persist-credentials: false
 
